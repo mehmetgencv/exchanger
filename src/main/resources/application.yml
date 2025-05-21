@@ -23,4 +23,5 @@ spring:
 exchange:
   provider: currencyLayerClient
   api:
+    url: https://api.currencylayer.com
     key: ${EXCHANGE_API_KEY}

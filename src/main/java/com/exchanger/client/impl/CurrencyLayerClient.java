@@ -21,9 +21,10 @@ public class CurrencyLayerClient implements ExchangeRateClient {
 
     public CurrencyLayerClient(
             WebClient.Builder builder,
+            @Value("${exchange.api.url}") String baseUrl,
             @Value("${exchange.api.key}") String accessKey
     ) {
-        this.webClient = builder.baseUrl("https://api.currencylayer.com").build();
+        this.webClient = builder.baseUrl(baseUrl).build();
         this.accessKey = accessKey;
     }
 
