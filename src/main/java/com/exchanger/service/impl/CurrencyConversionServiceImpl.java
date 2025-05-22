@@ -4,27 +4,36 @@ import com.exchanger.client.ExchangeRateClient;
 import com.exchanger.dto.requests.CurrencyConversionHistoryRequest;
 import com.exchanger.dto.requests.CurrencyConversionRequest;
 import com.exchanger.dto.requests.ExchangeRateRequest;
-import com.exchanger.dto.responses.CurrencyConversionHistoryResponse;
-import com.exchanger.dto.responses.CurrencyConversionResponse;
-import com.exchanger.dto.responses.ExchangeRateResponse;
-import com.exchanger.dto.responses.SingleExchangeRateResponse;
+import com.exchanger.dto.responses.*;
 import com.exchanger.entity.CurrencyConversion;
 import com.exchanger.exception.ExternalApiException;
+import com.exchanger.mapper.CurrencyConversionMapper;
 import com.exchanger.repository.CurrencyConversionRepository;
 import com.exchanger.service.CurrencyConversionService;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
-import java.util.List;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class CurrencyConversionServiceImpl implements CurrencyConversionService {
 
     private final ExchangeRateClient exchangeRateClient;
     private final CurrencyConversionRepository currencyConversionRepository;
+    private static final Logger log = LoggerFactory.getLogger(CurrencyConversionServiceImpl.class);
 
 
     public CurrencyConversionServiceImpl(ExchangeRateClient exchangeRateClient, CurrencyConversionRepository currencyConversionRepository) {
@@ -117,6 +126,80 @@ public class CurrencyConversionServiceImpl implements CurrencyConversionService 
 
         return new PageImpl<>(responseList, pageable, responseList.size());
     }
+
+    @Override
+    public List<BulkConversionResponse> processCsvFile(MultipartFile file) {
+        List<BulkConversionResponse> results = new ArrayList<>();
+        List<CurrencyConversion> conversionsToPersist = new ArrayList<>();
+
+        List<CurrencyConversionRequest> requests = parseCsvToRequests(file);
+
+        Map<String, List<CurrencyConversionRequest>> grouped = requests.stream()
+                .collect(Collectors.groupingBy(CurrencyConversionRequest::sourceCurrency));
+
+        for (var entry : grouped.entrySet()) {
+            String source = entry.getKey();
+            List<CurrencyConversionRequest> groupRequests = entry.getValue();
+
+            Set<String> targets = groupRequests.stream()
+                    .map(CurrencyConversionRequest::targetCurrency)
+                    .collect(Collectors.toSet());
+
+            ExchangeRateResponse rateResponse = fetchRates(new ExchangeRateRequest(source, new ArrayList<>(targets)));
+
+            for (CurrencyConversionRequest req : groupRequests) {
+                String key = source + "_" + req.targetCurrency();
+                BigDecimal rate = rateResponse.rates().get(key);
+
+                if (rate == null) {
+                    results.add(new BulkConversionResponse(null, null, "Rate not found for " + key));
+                    continue;
+                }
+
+                CurrencyConversion entity = CurrencyConversionMapper.INSTANCE.toEntity(req, rate);
+                conversionsToPersist.add(entity);
+                results.add(new BulkConversionResponse(null, entity.getConvertedAmount(), null));
+            }
+        }
+
+        List<CurrencyConversion> saved = currencyConversionRepository.saveAll(conversionsToPersist);
+
+        int i = 0;
+        for (BulkConversionResponse result : results) {
+            if (result.transactionId() == null && result.errorMessage() == null) {
+                UUID id = saved.get(i).getId();
+                results.set(results.indexOf(result), new BulkConversionResponse(id, result.convertedAmount(), null));
+                i++;
+            }
+        }
+        return results;
+    }
+
+
+    private List<CurrencyConversionRequest> parseCsvToRequests(MultipartFile file) {
+        List<CurrencyConversionRequest> requests = new ArrayList<>();
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
+             CSVParser parser = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(reader)) {
+
+            for (CSVRecord record : parser) {
+                try {
+                    BigDecimal amount = new BigDecimal(record.get("amount"));
+                    String source = record.get("sourceCurrency").toUpperCase();
+                    String target = record.get("targetCurrency").toUpperCase();
+
+                    requests.add(new CurrencyConversionRequest(amount, source, target));
+                } catch (Exception e) {
+                    log.warn("Failed to parse CSV record: {}", record, e);
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse CSV: " + e.getMessage());
+        }
+
+        return requests;
+    }
+
 
 
     private ExchangeRateResponse fetchRates(ExchangeRateRequest request) {

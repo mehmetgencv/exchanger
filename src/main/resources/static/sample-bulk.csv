@@ -1,0 +1,6 @@
+amount,sourceCurrency,targetCurrency
+100,USD,EUR
+250,GBP,TRY
+50,EUR,USD
+75.5,USD,JPY
+300,CHF,USD
