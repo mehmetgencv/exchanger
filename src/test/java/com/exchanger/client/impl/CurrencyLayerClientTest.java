@@ -3,6 +3,7 @@ package com.exchanger.client.impl;
 import com.exchanger.dto.requests.ExchangeRateRequest;
 import com.exchanger.dto.responses.CurrencyLayerApiResponse;
 import com.exchanger.dto.responses.ExchangeRateResponse;
+import com.exchanger.exception.CurrencyLayerError;
 import com.exchanger.exception.ExternalApiException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -54,7 +55,12 @@ class CurrencyLayerClientTest {
         Map<String, BigDecimal> quotes = new HashMap<>();
         quotes.put("USDEUR", new BigDecimal("0.85"));
         quotes.put("USDGBP", new BigDecimal("0.73"));
-        CurrencyLayerApiResponse apiResponse = new CurrencyLayerApiResponse(true, "USD", 1697059200L, quotes);
+        CurrencyLayerApiResponse apiResponse = new CurrencyLayerApiResponse(
+                true,
+                "USD",
+                1697059200L,
+                quotes,
+                null);
 
         String jsonResponse = objectMapper.writeValueAsString(apiResponse);
 
@@ -74,7 +80,13 @@ class CurrencyLayerClientTest {
     @Test
     void givenFailedApiResponse_whenGetExchangeRates_thenThrowsExternalApiException() throws Exception {
         ExchangeRateRequest request = new ExchangeRateRequest("USD", List.of("EUR"));
-        CurrencyLayerApiResponse apiResponse = new CurrencyLayerApiResponse(false, null, 0L, null);
+        CurrencyLayerApiResponse apiResponse = new CurrencyLayerApiResponse(
+                false,
+                null,
+                0L,
+                null,
+                new CurrencyLayerError(101, "invalid_access_key", null)
+        );
 
         mockWebServer.enqueue(new MockResponse()
                 .setBody(objectMapper.writeValueAsString(apiResponse))
@@ -82,9 +94,8 @@ class CurrencyLayerClientTest {
                 .setResponseCode(200));
 
         ExternalApiException exception = assertThrows(ExternalApiException.class,
-                () -> currencyLayerClient.getExchangeRates(request),
-                "Should throw ExternalApiException for failed API response");
-        assertEquals("Failed to fetch exchange rates.", exception.getMessage(), "Exception message should match");
+                () -> currencyLayerClient.getExchangeRates(request));
+        assertTrue(exception.getMessage().contains("invalid_access_key"));
     }
 
     @Test
@@ -96,8 +107,7 @@ class CurrencyLayerClientTest {
                 .setResponseCode(200));
 
         ExternalApiException exception = assertThrows(ExternalApiException.class,
-                () -> currencyLayerClient.getExchangeRates(request),
-                "Should throw ExternalApiException for null response");
-        assertEquals("Failed to fetch exchange rates.", exception.getMessage(), "Exception message should match");
+                () -> currencyLayerClient.getExchangeRates(request));
+        assertEquals("Failed to fetch exchange rates", exception.getMessage());
     }
 }
