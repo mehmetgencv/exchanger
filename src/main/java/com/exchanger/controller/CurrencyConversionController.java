@@ -1,8 +1,10 @@
 package com.exchanger.controller;
 
 
+import com.exchanger.dto.requests.CurrencyConversionHistoryRequest;
 import com.exchanger.dto.requests.CurrencyConversionRequest;
 import com.exchanger.dto.requests.ExchangeRateRequest;
+import com.exchanger.dto.responses.CurrencyConversionHistoryResponse;
 import com.exchanger.dto.responses.CurrencyConversionResponse;
 import com.exchanger.dto.responses.SingleExchangeRateResponse;
 import com.exchanger.service.CurrencyConversionService;
@@ -14,6 +16,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -69,5 +73,21 @@ public class CurrencyConversionController {
     ) {
         CurrencyConversionResponse response = currencyConversionService.convert(request);
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(
+            summary = "Get currency conversion history",
+            description = "Returns paginated conversion history filtered by transactionId or date. At least one must be provided."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "History retrieved successfully"),
+            @ApiResponse(responseCode = "400", description = "Validation failed for request"),
+    })
+    @GetMapping("/history")
+    public Page<CurrencyConversionHistoryResponse> getConversionHistory(
+            @Valid CurrencyConversionHistoryRequest request,
+            @Parameter(hidden = true) Pageable pageable
+    ) {
+        return currencyConversionService.getHistory(request, pageable);
     }
 }

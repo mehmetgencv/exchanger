@@ -2,12 +2,31 @@ package com.exchanger.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiErrorResponse> handleValidationException(MethodArgumentNotValidException ex) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .map(fieldError -> Objects.toString(fieldError.getDefaultMessage(), "Validation failed"))
+                .findFirst()
+                .orElse("Validation failed");
+
+        return ResponseEntity
+                .badRequest()
+                .body(new ApiErrorResponse(
+                        400,
+                        message,
+                        "VALIDATION_ERROR",
+                        LocalDateTime.now()
+                ));
+    }
 
     @ExceptionHandler(ExternalApiException.class)
     public ResponseEntity<ApiErrorResponse> handleExternalApiException(ExternalApiException ex) {

@@ -1,8 +1,10 @@
 package com.exchanger.service.impl;
 
 import com.exchanger.client.ExchangeRateClient;
+import com.exchanger.dto.requests.CurrencyConversionHistoryRequest;
 import com.exchanger.dto.requests.CurrencyConversionRequest;
 import com.exchanger.dto.requests.ExchangeRateRequest;
+import com.exchanger.dto.responses.CurrencyConversionHistoryResponse;
 import com.exchanger.dto.responses.CurrencyConversionResponse;
 import com.exchanger.dto.responses.ExchangeRateResponse;
 import com.exchanger.dto.responses.SingleExchangeRateResponse;
@@ -10,6 +12,9 @@ import com.exchanger.entity.CurrencyConversion;
 import com.exchanger.exception.ExternalApiException;
 import com.exchanger.repository.CurrencyConversionRepository;
 import com.exchanger.service.CurrencyConversionService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -81,6 +86,38 @@ public class CurrencyConversionServiceImpl implements CurrencyConversionService 
 
         return new CurrencyConversionResponse(saved.getId(), saved.getConvertedAmount());
     }
+
+    @Override
+    public Page<CurrencyConversionHistoryResponse> getHistory(CurrencyConversionHistoryRequest request, Pageable pageable) {
+        List<CurrencyConversion> results;
+
+        if (request.transactionId() != null) {
+            results = currencyConversionRepository.findById(request.transactionId())
+                    .map(List::of)
+                    .orElse(List.of());
+        } else {
+            var start = request.date().atStartOfDay();
+            var end = start.plusDays(1);
+            results = currencyConversionRepository
+                    .findAllByTransactionDateBetween(start, end, pageable)
+                    .getContent();
+        }
+
+        var responseList = results.stream()
+                .map(c -> new CurrencyConversionHistoryResponse(
+                        c.getId(),
+                        c.getSourceCurrency(),
+                        c.getTargetCurrency(),
+                        c.getSourceAmount(),
+                        c.getConvertedAmount(),
+                        c.getExchangeRate(),
+                        c.getTransactionDate()
+                ))
+                .toList();
+
+        return new PageImpl<>(responseList, pageable, responseList.size());
+    }
+
 
     private ExchangeRateResponse fetchRates(ExchangeRateRequest request) {
         return exchangeRateClient.getExchangeRates(request);
