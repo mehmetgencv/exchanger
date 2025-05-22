@@ -45,7 +45,17 @@ public class CurrencyLayerClient implements ExchangeRateClient {
                 .block();
 
         if (rawResponse == null || !rawResponse.success() || rawResponse.quotes() == null) {
-            throw new ExternalApiException("Failed to fetch exchange rates.");
+            String reason = "Failed to fetch exchange rates";
+
+            if (rawResponse != null && rawResponse.error() != null) {
+                var err = rawResponse.error();
+
+                reason = err.info() != null && !err.info().isBlank()
+                        ? err.info()
+                        : "CurrencyLayer error - " + err.type() + " (code " + err.code() + ")";
+            }
+
+            throw new ExternalApiException(reason);
         }
 
         Map<String, BigDecimal> rates = new HashMap<>();
