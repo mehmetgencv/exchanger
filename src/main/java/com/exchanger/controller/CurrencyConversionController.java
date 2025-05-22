@@ -2,9 +2,12 @@ package com.exchanger.controller;
 
 
 import com.exchanger.dto.requests.ExchangeRateRequest;
-import com.exchanger.dto.responses.ExchangeRateResponse;
 import com.exchanger.dto.responses.SingleExchangeRateResponse;
 import com.exchanger.service.CurrencyConversionService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,9 +24,21 @@ public class CurrencyConversionController {
         this.currencyConversionService = currencyConversionService;
     }
 
+    @Operation(
+            summary = "Get exchange rate between two currencies",
+            description = "Returns the current exchange rate for a given source and target currency pair."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successful exchange rate retrieval"),
+            @ApiResponse(responseCode = "400", description = "Invalid input parameters"),
+            @ApiResponse(responseCode = "502", description = "External API error")
+    })
     @GetMapping("/exchange-rate")
     public ResponseEntity<SingleExchangeRateResponse> getExchangeRate(
+            @Parameter(description = "Source currency code (e.g. USD)", example = "USD")
             @RequestParam @NotBlank String source,
+
+            @Parameter(description = "Target currency code (e.g. EUR)", example = "EUR")
             @RequestParam @NotBlank String target
     ) {
 
