@@ -4,12 +4,14 @@ package com.exchanger.controller;
 import com.exchanger.dto.requests.CurrencyConversionHistoryRequest;
 import com.exchanger.dto.requests.CurrencyConversionRequest;
 import com.exchanger.dto.requests.ExchangeRateRequest;
+import com.exchanger.dto.responses.BulkConversionResponse;
 import com.exchanger.dto.responses.CurrencyConversionHistoryResponse;
 import com.exchanger.dto.responses.CurrencyConversionResponse;
 import com.exchanger.dto.responses.SingleExchangeRateResponse;
 import com.exchanger.service.CurrencyConversionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -20,6 +22,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -89,5 +92,24 @@ public class CurrencyConversionController {
             @Parameter(hidden = true) Pageable pageable
     ) {
         return currencyConversionService.getHistory(request, pageable);
+    }
+
+    @Operation(
+            summary = "Process bulk currency conversions from CSV",
+            description = "Uploads a CSV file containing multiple currency conversion requests and returns the results."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Bulk conversion completed successfully",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = BulkConversionResponse.class)))),
+            @ApiResponse(responseCode = "400", description = "Invalid file or format"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    @PostMapping(value = "/bulk-conversion", consumes = "multipart/form-data")
+    public ResponseEntity<List<BulkConversionResponse>> processBulkFile(
+            @Parameter(description = "CSV file containing conversion requests", required = true)
+            @RequestPart("file") MultipartFile file
+    ) {
+        List<BulkConversionResponse> responses = currencyConversionService.processCsvFile(file);
+        return ResponseEntity.ok(responses);
     }
 }
