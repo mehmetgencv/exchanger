@@ -1,5 +1,10 @@
 package com.exchanger.repository;
 
-public interface CurrencyConversionRepository  {
+import com.exchanger.entity.CurrencyConversion;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.UUID;
+
+public interface CurrencyConversionRepository extends JpaRepository<CurrencyConversion, UUID> {
 
 }
