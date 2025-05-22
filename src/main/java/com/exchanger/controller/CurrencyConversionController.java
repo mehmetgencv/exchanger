@@ -1,13 +1,16 @@
 package com.exchanger.controller;
 
 
+import com.exchanger.dto.requests.CurrencyConversionRequest;
 import com.exchanger.dto.requests.ExchangeRateRequest;
+import com.exchanger.dto.responses.CurrencyConversionResponse;
 import com.exchanger.dto.responses.SingleExchangeRateResponse;
 import com.exchanger.service.CurrencyConversionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -45,6 +48,14 @@ public class CurrencyConversionController {
         ExchangeRateRequest request = new ExchangeRateRequest(source.toUpperCase(), List.of(target.toUpperCase()) );
         SingleExchangeRateResponse response = currencyConversionService.getSingleExchangeRate(request);
 
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping
+    public ResponseEntity<CurrencyConversionResponse> convertCurrency(
+            @RequestBody @Valid CurrencyConversionRequest request
+    ) {
+        CurrencyConversionResponse response = currencyConversionService.convert(request);
         return ResponseEntity.ok(response);
     }
 }
