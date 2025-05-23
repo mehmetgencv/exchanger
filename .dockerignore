@@ -1,0 +1,26 @@
+# Maven build output
+target/
+
+# IntelliJ, VSCode ve diğer IDE klasörleri
+.idea/
+*.iml
+.vscode/
+
+# OS/system files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Logs and temp
+*.log
+*.tmp
+
+
+
+# Dockerfile cache artifacts
+**/.classpath
+**/.project
+**/.settings
