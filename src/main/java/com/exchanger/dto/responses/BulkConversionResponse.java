@@ -5,6 +5,10 @@ import java.util.UUID;
 
 public record BulkConversionResponse(
         UUID transactionId,
+        String sourceCurrency,
+        String targetCurrency,
+        BigDecimal rate,
+        BigDecimal originalAmount,
         BigDecimal convertedAmount,
         String errorMessage
 ) {}

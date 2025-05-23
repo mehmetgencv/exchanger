@@ -145,31 +145,75 @@ public class CurrencyConversionServiceImpl implements CurrencyConversionService 
                     .map(CurrencyConversionRequest::targetCurrency)
                     .collect(Collectors.toSet());
 
-            ExchangeRateResponse rateResponse = fetchRates(new ExchangeRateRequest(source, new ArrayList<>(targets)));
+            ExchangeRateResponse rateResponse;
+            try {
+                Thread.sleep(1000);
+                rateResponse = fetchRates(new ExchangeRateRequest(source, new ArrayList<>(targets)));
+            } catch (ExternalApiException e) {
+                for (CurrencyConversionRequest req : groupRequests) {
+                    results.add(new BulkConversionResponse(
+                            null,
+                            req.sourceCurrency(),
+                            req.targetCurrency(),
+                            req.amount(),
+                            null,
+                            null,
+                            "Rate fetch failed for " + source + ": " + e.getMessage()));
+                }
+                continue;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Thread interrupted", e);
+            }
 
             for (CurrencyConversionRequest req : groupRequests) {
                 String key = source + "_" + req.targetCurrency();
                 BigDecimal rate = rateResponse.rates().get(key);
 
                 if (rate == null) {
-                    results.add(new BulkConversionResponse(null, null, "Rate not found for " + key));
+                    results.add(new BulkConversionResponse(
+                            null,
+                            req.sourceCurrency(),
+                            req.targetCurrency(),
+                            req.amount(),
+                            null,
+                            null,
+                            "Rate not found for " + key));
                     continue;
                 }
 
                 CurrencyConversion entity = CurrencyConversionMapper.INSTANCE.toEntity(req, rate);
                 conversionsToPersist.add(entity);
-                results.add(new BulkConversionResponse(null, entity.getConvertedAmount(), null));
+                results.add(new BulkConversionResponse(
+                        null,
+                        entity.getSourceCurrency(),
+                        entity.getTargetCurrency(),
+                        entity.getExchangeRate(),
+                        entity.getSourceAmount(),
+                        entity.getConvertedAmount(),
+                        null));
             }
         }
 
-        List<CurrencyConversion> saved = currencyConversionRepository.saveAll(conversionsToPersist);
+        List<CurrencyConversion> saved = Collections.emptyList();
 
-        int i = 0;
-        for (BulkConversionResponse result : results) {
-            if (result.transactionId() == null && result.errorMessage() == null) {
-                UUID id = saved.get(i).getId();
-                results.set(results.indexOf(result), new BulkConversionResponse(id, result.convertedAmount(), null));
-                i++;
+        if (!conversionsToPersist.isEmpty()) {
+            saved = currencyConversionRepository.saveAll(conversionsToPersist);
+
+            int i = 0;
+            for (BulkConversionResponse result : results) {
+                if (result.transactionId() == null && result.errorMessage() == null) {
+                    UUID id = saved.get(i).getId();
+                    results.set(results.indexOf(result), new BulkConversionResponse(
+                            id,
+                            result.sourceCurrency(),
+                            result.targetCurrency(),
+                            result.rate(),
+                            result.originalAmount(),
+                            result.convertedAmount(),
+                            null));
+                    i++;
+                }
             }
         }
         return results;
