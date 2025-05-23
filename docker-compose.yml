@@ -1,0 +1,50 @@
+version: '3.8'
+
+name: exchanger
+
+services:
+  app:
+    build: .
+    container_name: exchanger-app
+    depends_on:
+      - db
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/exchanger
+      SPRING_DATASOURCE_USERNAME: exchanger
+      SPRING_DATASOURCE_PASSWORD: exchanger
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+      SPRING_SQL_INIT_MODE: always
+
+      # Exchange API config
+      EXCHANGE_API_KEY: ${EXCHANGE_API_KEY}
+      EXCHANGE_API_URL: https://api.currencylayer.com
+      EXCHANGE_PROVIDER: currencyLayerClient
+    restart: on-failure
+    networks:
+      - exchanger-network
+
+  db:
+    image: postgres:15
+    container_name: exchanger-db
+    environment:
+      POSTGRES_USER: exchanger
+      POSTGRES_PASSWORD: exchanger
+      POSTGRES_DB: exchanger
+
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./init-scripts:/docker-entrypoint-initdb.d
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - exchanger-network
+
+networks:
+  exchanger-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
