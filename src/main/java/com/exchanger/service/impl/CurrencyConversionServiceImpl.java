@@ -195,7 +195,7 @@ public class CurrencyConversionServiceImpl implements CurrencyConversionService 
             }
         }
 
-        List<CurrencyConversion> saved = Collections.emptyList();
+        List<CurrencyConversion> saved;
 
         if (!conversionsToPersist.isEmpty()) {
             saved = currencyConversionRepository.saveAll(conversionsToPersist);
