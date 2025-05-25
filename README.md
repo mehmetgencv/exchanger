@@ -84,6 +84,11 @@ amount,sourceCurrency,targetCurrency
 100,USD,EUR
 250,GBP,TRY
 ```
+
+A sample CSV file is available at:
+`src/main/resources/static/sample-bulk.csv`
+
+[sample-bulk.csv](src/main/resources/static/sample-bulk.csv)
 ### Performance Optimization
 
 When a CSV file is uploaded, the system groups conversion requests by `sourceCurrency` and performs a **single batched exchange rate API call** per group.
