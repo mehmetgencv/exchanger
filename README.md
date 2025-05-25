@@ -84,7 +84,10 @@ amount,sourceCurrency,targetCurrency
 100,USD,EUR
 250,GBP,TRY
 ```
+### Performance Optimization
 
+When a CSV file is uploaded, the system groups conversion requests by `sourceCurrency` and performs a **single batched exchange rate API call** per group.
+This minimizes external API usage, reduces network overhead, and improves overall performance for large bulk uploads.
 ## Testing
 
 To run tests locally:
