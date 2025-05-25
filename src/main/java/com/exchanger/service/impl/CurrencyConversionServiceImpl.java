@@ -145,25 +145,20 @@ public class CurrencyConversionServiceImpl implements CurrencyConversionService 
                     .map(CurrencyConversionRequest::targetCurrency)
                     .collect(Collectors.toSet());
 
-            ExchangeRateResponse rateResponse;
+            ExchangeRateResponse rateResponse = null;
+            boolean rateFetchFailed = false;
             try {
                 Thread.sleep(1000);
                 rateResponse = fetchRates(new ExchangeRateRequest(source, new ArrayList<>(targets)));
             } catch (ExternalApiException e) {
-                for (CurrencyConversionRequest req : groupRequests) {
-                    results.add(new BulkConversionResponse(
-                            null,
-                            req.sourceCurrency(),
-                            req.targetCurrency(),
-                            req.amount(),
-                            null,
-                            null,
-                            "Rate fetch failed for " + source + ": " + e.getMessage()));
-                }
-                continue;
+                rateFetchFailed = true;
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException("Thread interrupted", e);
+            }
+            if (rateFetchFailed || rateResponse == null) {
+                handleFailedRateFetch(groupRequests, results);
+                continue;
             }
 
             for (CurrencyConversionRequest req : groupRequests) {
@@ -248,5 +243,18 @@ public class CurrencyConversionServiceImpl implements CurrencyConversionService 
 
     private ExchangeRateResponse fetchRates(ExchangeRateRequest request) {
         return exchangeRateClient.getExchangeRates(request);
+    }
+
+    private void handleFailedRateFetch(List<CurrencyConversionRequest> groupRequests, List<BulkConversionResponse> results) {
+        for (CurrencyConversionRequest req : groupRequests) {
+            results.add(new BulkConversionResponse(
+                    null,
+                    req.sourceCurrency(),
+                    req.targetCurrency(),
+                    null,
+                    req.amount(),
+                    null,
+                    "Rate fetch failed for " + req.sourceCurrency()));
+        }
     }
 }
